@@ -1,3 +1,4 @@
+extern crate clap;
 extern crate crypto;
 extern crate time;
 
@@ -13,9 +14,11 @@ fn main() {
         .unwrap_or(String::new());
     let key = key.trim();
 
+    let zeroes = args();
+
     let (secs, soln) = time_secs(|| {
         for n in 1.. {
-            if try(key, n) {
+            if try(key, n, zeroes) {
                 return n
             }
         }
@@ -23,6 +26,16 @@ fn main() {
     });
 
     println!("solution: {} (took {} secs)", soln, secs);
+}
+
+fn args() -> usize {
+    let matches = clap::App::new("day4")
+        .args_from_usage(
+            "-z --zeroes=[ZEROES] 'Specifies the number of leading zeroes'"
+        )
+        .get_matches();
+
+    matches.value_of("ZEROES").map(|s| s.parse().unwrap()).unwrap_or(5)
 }
 
 fn time_secs<F, R>(f: F) -> (f64, R)
@@ -33,12 +46,12 @@ where F: FnOnce() -> R {
     (end - start, r)
 }
 
-fn try(key: &str, n: u32) -> bool {
+fn try(key: &str, n: u32, zeroes: usize) -> bool {
     let mut md5 = Md5::new();
     md5.input_str(key);
     let n_str = format!("{}", n);
     md5.input_str(&n_str);
 
     let hash = md5.result_str();
-    hash.bytes().take(5).all(|b| b == b'0')
+    hash.bytes().take(zeroes).all(|b| b == b'0')
 }

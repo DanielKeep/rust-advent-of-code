@@ -4,5 +4,6 @@ version = "0.1.0"
 authors = ["Daniel Keep <daniel.keep@gmail.com>"]
 
 [dependencies]
+clap = "1.5.3"
 rust-crypto = "0.2.34"
 time = "0.1.34"
