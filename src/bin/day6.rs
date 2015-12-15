@@ -1,4 +1,5 @@
 #[macro_use] extern crate lazy_static;
+extern crate clap;
 extern crate regex;
 
 macro_rules! try_opt {
@@ -52,28 +53,79 @@ impl Instr {
             Toggle(rect) => mutate_rect(field, rect, |_, c| *c = !*c),
         }
     }
+
+    fn apply_alt(self, field: &mut [u8]) {
+        use self::Instr::*;
+        match self {
+            TurnOn(rect) => mutate_rect(field, rect, |_, c| {
+                *c = (*c).checked_add(1).expect("brightness overflowed");
+            }),
+            TurnOff(rect) => mutate_rect(field, rect, |_, c| {
+                *c = (*c).saturating_sub(1);
+            }),
+            Toggle(rect) => mutate_rect(field, rect, |_, c| {
+                *c = (*c).checked_add(2).expect("brightness overflowed");
+            }),
+        }
+    }
 }
 
 fn main() {
     let instrs = read_instrs();
-    let mut field = vec![false; FIELD_SIZE.0 * FIELD_SIZE.1];
 
-    for instr in instrs {
-        instr.apply(&mut field);
+    let new_rules = args();
+
+    if new_rules {
+        let mut field = vec![0; FIELD_SIZE.0 * FIELD_SIZE.1];
+
+        for instr in instrs {
+            instr.apply_alt(&mut field);
+        }
+
+        let total_light = {
+            let mut total_light = 0u32;
+            let rect = (
+                (0,0),
+                ((FIELD_SIZE.0 - 1) as u16,
+                    (FIELD_SIZE.1 - 1) as u16)
+            );
+            mutate_rect(&mut field, rect, |_, on| total_light += (*on) as u32);
+            total_light
+        };
+
+        println!("total light: {}", total_light);
+    } else {
+        let mut field = vec![false; FIELD_SIZE.0 * FIELD_SIZE.1];
+
+        for instr in instrs {
+            instr.apply(&mut field);
+        }
+
+        let lights_on = {
+            let mut lights_on = 0;
+            let rect = (
+                (0,0),
+                ((FIELD_SIZE.0 - 1) as u16,
+                    (FIELD_SIZE.1 - 1) as u16)
+            );
+            mutate_rect(&mut field, rect, |_, on| if *on { lights_on += 1; });
+            lights_on
+        };
+
+        println!("lights on: {}", lights_on);
     }
+}
 
-    let lights_on = {
-        let mut lights_on = 0;
-        let rect = (
-            (0,0),
-            ((FIELD_SIZE.0 - 1) as u16,
-                (FIELD_SIZE.1 - 1) as u16)
-        );
-        mutate_rect(&mut field, rect, |_, on| if *on { lights_on += 1; });
-        lights_on
-    };
+fn args() -> bool {
+    let matches = clap::App::new("day6")
+        .args_from_usage("\
+            -n --new-rules 'Use new rules'\
+        ")
+        .get_matches();
 
-    println!("lights on: {}", lights_on);
+    let new_rules = matches.is_present("new-rules");
+
+    new_rules
 }
 
 fn read_instrs() -> Vec<Instr> {
@@ -107,8 +159,8 @@ fn read_instrs() -> Vec<Instr> {
     instrs
 }
 
-fn mutate_rect<F>(field: &mut [bool], rect: Rect, mut f: F)
-where F: FnMut(Point, &mut bool) {
+fn mutate_rect<T, F>(field: &mut [T], rect: Rect, mut f: F)
+where F: FnMut(Point, &mut T) {
     for y in rect .0 .1 .. (rect .1 .1 + 1) {
         let x_beg = rect .0 .0;
         let x_end = rect .1 .0 + 1;
