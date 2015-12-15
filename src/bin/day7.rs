@@ -1,4 +1,5 @@
 #[macro_use] extern crate lazy_static;
+extern crate clap;
 extern crate conv;
 extern crate regex;
 
@@ -117,37 +118,69 @@ lazy_static! {
 }
 
 fn main() {
-    let (wires, _name_to_strs, str_to_names) = parse_input();
-    let mut values = vec![None; wires.len()];
-    let mut remaining = values.len();
-    let mut passes = 0;
+    let (remap, filter) = args();
 
-    while remaining > 0 {
-        passes += 1;
-        let remaining_at_start = remaining;
-        for wire in wires.iter() {
-            let wire_idx = wire.name as usize;
-            if values[wire_idx].is_none() {
-                if let Some(v) = wire.signal.eval(&values) {
-                    values[wire_idx] = Some(v);
-                    remaining -= 1;
-                }
-            }
-        }
-        if remaining == remaining_at_start {
-            println!("Warning: could not solve; {} remaining", remaining);
-        }
+    let (wires, _, str_to_names) = parse_input();
+    let mut values = vec![None; wires.len()];
+
+    let mut passes = eval(&wires, &mut values);
+
+    if let Some((remap_src, remap_dst)) = remap {
+        let src_idx = str_to_names[&*remap_src] as usize;
+        let dst_idx = str_to_names[&*remap_dst] as usize;
+        let src_value = values[src_idx]
+            .expect("could not solve remap source");
+
+        println!("Remapping {} to value of {} ({})",
+            remap_dst, remap_src, src_value);
+
+        for v in &mut values { *v = None; }
+        values[dst_idx] = Some(src_value);
+
+        let remap_passes = eval(&wires, &mut values);
+        passes += remap_passes;
     }
 
     let mut names = str_to_names.into_iter().collect::<Vec<_>>();
     names.sort_by(|a, b| (a.0).cmp(&b.0));
     for (s, name) in names {
+        if !filter.is_match(&s) { continue; }
         let val = &values[name as usize];
         if let &Some(ref val) = val {
             println!("- {:>4}: {}", s, val);
+        } else {
+            println!("- {:>4}: (unsolved)", s);
         }
     }
+
     println!("(in {} pass{})", passes, if passes == 1 { "" } else { "es" });
+}
+
+fn args() -> (Option<(String, String)>, Regex) {
+    let matches = clap::App::new("day7")
+        .args_from_usage("\
+            -f --filter=[FILTER] 'Filter output wire names'
+            -r --remap=[REMAP] 'Remap one wire to another, then re-evaluate'\
+        ")
+        .get_matches();
+
+    let remap = matches.value_of("REMAP")
+        .map(|arg| {
+            let mut parts = arg.split('=');
+            let a = parts.next()
+                .expect("argument to --remap must be `from=to`")
+                .trim();
+            let b = parts.next()
+                .expect("argument to --remap must be `from=to`")
+                .trim();
+            (b.to_owned(), a.to_owned())
+        });
+
+    let filter = matches.value_of("FILTER")
+        .map(|arg| Regex::new(&arg).unwrap())
+        .unwrap_or_else(|| Regex::new(r#"^.*$"#).unwrap());
+
+    (remap, filter)
 }
 
 fn parse_input() -> (Vec<Wire>, Vec<String>, HashMap<String, Name>) {
@@ -234,4 +267,29 @@ fn parse_input() -> (Vec<Wire>, Vec<String>, HashMap<String, Name>) {
     }
 
     (wires, name_to_strs, str_to_names)
+}
+
+fn eval(wires: &[Wire], values: &mut [Option<u16>]) -> usize {
+    let mut remaining = values.iter().filter(|v| v.is_none()).count();
+    let mut passes = 0;
+
+    while remaining > 0 {
+        passes += 1;
+        let remaining_at_start = remaining;
+        for wire in wires.iter() {
+            let wire_idx = wire.name as usize;
+            if values[wire_idx].is_none() {
+                if let Some(v) = wire.signal.eval(&values) {
+                    values[wire_idx] = Some(v);
+                    remaining -= 1;
+                }
+            }
+        }
+        if remaining == remaining_at_start {
+            println!("Warning: could not solve; {} remaining", remaining);
+            break;
+        }
+    }
+
+    passes
 }
