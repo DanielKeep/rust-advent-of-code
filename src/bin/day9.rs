@@ -1,4 +1,5 @@
 #[macro_use] extern crate lazy_static;
+extern crate clap;
 extern crate conv;
 extern crate itertools;
 extern crate permutohedron;
@@ -37,6 +38,8 @@ struct Graph<'a> {
 }
 
 fn main() {
+    let longest = args();
+
     let input = read_stdin();
     let mut names = Interner::new();
     let edges = parse_input(&input, &mut names);
@@ -46,16 +49,24 @@ fn main() {
     let mut best_soln = (total_cost(&init_soln, &graph), init_soln.clone());
     let mut cand_solns = permutohedron::Heap::new(&mut init_soln[..]);
 
+    fn first_cost_better(
+        a: Option<&u32>,
+        b: Option<&u32>,
+        longest: bool,
+    ) -> bool {
+        match (a, b) {
+            (None, _) => false,
+            (Some(_), None) => true,
+            (Some(a), Some(b)) => if longest { *a > *b } else { *a < *b }
+        }
+    }
+
     // Skip one.
     let _ = cand_solns.next_permutation();
 
     while let Some(cand_soln) = cand_solns.next_permutation() {
         let cost = total_cost(cand_soln, &graph);
-        if match (cost.as_ref(), (best_soln.0).as_ref()) {
-            (None, _) => false,
-            (Some(_), None) => true,
-            (Some(a), Some(b)) => *a < *b
-        } {
+        if first_cost_better(cost.as_ref(), (best_soln.0).as_ref(), longest) {
             let (_, mut soln) = best_soln;
             for (dst, src) in soln.iter_mut().zip(cand_soln.iter()) {
                 *dst = *src;
@@ -74,6 +85,18 @@ fn main() {
                 cost);
         }
     }
+}
+
+fn args() -> bool {
+    let matches = clap::App::new("day9")
+        .args_from_usage("\
+            -l --longest 'Return longest path instead of shortest'\
+        ")
+        .get_matches();
+
+    let longest = matches.is_present("longest");
+
+    longest
 }
 
 fn total_cost(path: &[Name], graph: &Graph) -> Option<u32> {
