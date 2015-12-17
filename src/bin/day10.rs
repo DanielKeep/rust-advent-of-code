@@ -3,28 +3,32 @@ extern crate clap;
 const DEFAULT_ROUNDS: u32 = 40;
 
 fn main() {
-    let rounds = args();
+    let (rounds, show_seq) = args();
     let mut num = read_stdin().lines().next().map(String::from).unwrap();
 
     for _ in 0..rounds {
         num = look_and_say(&num);
     }
 
-    println!("result after {} rounds: {}", rounds, num);
+    if show_seq {
+        println!("result after {} rounds: {}", rounds, num);
+    }
     println!("length: {}", num.len());
 }
 
-fn args() -> u32 {
+fn args() -> (u32, bool) {
     let matches = clap::App::new("day10")
         .args_from_usage("\
-            -r --rounds=[ROUNDS] 'Specifies the number of rounds'\
+            -r --rounds=[ROUNDS] 'Specifies the number of rounds'
+            -s --show-seq 'Show the final sequence'\
         ")
         .get_matches();
 
     let rounds = matches.value_of("ROUNDS")
         .map(|s| s.parse().unwrap())
         .unwrap_or(DEFAULT_ROUNDS);
-    rounds
+    let show_seq = matches.is_present("show-seq");
+    (rounds, show_seq)
 }
 
 fn look_and_say(mut n: &str) -> String {
