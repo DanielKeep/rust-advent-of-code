@@ -5,17 +5,27 @@ use std::cmp;
 use regex::Regex;
 
 fn main() {
-    let seconds = args();
+    let (new_rules, seconds) = args();
     let entries = parse_input();
 
-    let mut results: Vec<_> = entries.iter()
-        .map(|e| (&*e.0, simulate(e, seconds)))
-        .collect();
-    results.sort_by(|a, b| a.1.cmp(&b.1).reverse());
+    if !new_rules {
+        let mut results: Vec<_> = entries.iter()
+            .map(|e| (&*e.0, simulate(e, seconds)))
+            .collect();
+        results.sort_by(|a, b| a.1.cmp(&b.1).reverse());
 
-    println!("results after {} s:", seconds);
-    for (name, dist) in results {
-        println!("- {} flew {} km", name, dist);
+        println!("results after {} s:", seconds);
+        for (name, dist) in results {
+            println!("- {} flew {} km", name, dist);
+        }
+    } else {
+        let mut results = simulate_part_2(&entries, seconds);
+        results.sort_by(|a, b| a.1.cmp(&b.1).reverse());
+
+        println!("results after {} s:", seconds);
+        for (name, pts, pos) in results {
+            println!("- {} scored {} points (at {} km)", name, pts, pos);
+        }
     }
 }
 
@@ -32,20 +42,64 @@ fn simulate(&(_, fv, ft, rt): &(String, u32, u32, u32), seconds: u32) -> u32 {
     pos
 }
 
-fn args() -> u32 {
+fn simulate_part_2(entries: &[(String, u32, u32, u32)], seconds: u32) -> Vec<(&str, u32, u32)> {
+    #[derive(Clone, Default)]
+    struct State {
+        pts: u32,
+        pos: u32,
+        ft: u32,
+        rt: u32,
+    }
+
+    let mut states: Vec<_> = entries.iter()
+        .map(|e| State { pts: 0, pos: 0, ft: e.2, rt: e.3 })
+        .collect();
+
+    for _ in 0..seconds {
+        for (en, st) in entries.iter().zip(states.iter_mut()) {
+            if st.ft > 0 {
+                st.pos += en.1;
+                st.ft -= 1;
+            } else if st.rt > 0 {
+                st.rt -= 1;
+            }
+
+            if st.ft == 0 && st.rt == 0 {
+                st.ft = en.2;
+                st.rt = en.3;
+            }
+        }
+
+        let max_pos = states.iter().map(|e| e.pos).max().unwrap();
+
+        for st in states.iter_mut() {
+            if st.pos == max_pos {
+                st.pts += 1;
+            }
+        }
+    }
+
+    entries.iter().zip(states.iter())
+        .map(|(en, st)| (&*en.0, st.pts, st.pos))
+        .collect()
+}
+
+fn args() -> (bool, u32) {
     extern crate clap;
 
     let matches = clap::App::new("day14")
         .args_from_usage("\
+            -n --new-rules 'Use new rules'
             <SECONDS> 'Number of seconds to simulate'\
         ")
         .get_matches();
 
+    let new_rules = matches.is_present("new-rules");
     let seconds = matches.value_of("SECONDS")
         .map(|s| s.parse().unwrap())
         .unwrap();
 
-    seconds
+    (new_rules, seconds)
 }
 
 lazy_static! {
