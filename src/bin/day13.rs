@@ -1,4 +1,5 @@
 #[macro_use] extern crate lazy_static;
+extern crate clap;
 extern crate itertools;
 extern crate permutohedron;
 extern crate regex;
@@ -8,8 +9,9 @@ use itertools::Itertools;
 use regex::Regex;
 
 fn main() {
+    let add_myself = args();
     let input = read_stdin();
-    let (names, table) = parse_input(&input);
+    let (names, table) = parse_input(&input, add_myself);
     let nns = names.len();
 
     println!("names: {:?}", names);
@@ -55,6 +57,18 @@ fn total_diff(soln: &[usize], num_names: usize, table: &[i32]) -> i32 {
     total
 }
 
+fn args() -> bool {
+    let matches = clap::App::new("day13")
+        .args_from_usage("\
+            -m --myself 'Add `Myself` to the list of names'\
+        ")
+        .get_matches();
+
+    let myself = matches.is_present("myself");
+
+    myself
+}
+
 lazy_static! {
     static ref RE_LINE: Regex = Regex::new(r#"(?ix)
         ^ \s* (?P<name0> \w+)
@@ -65,7 +79,7 @@ lazy_static! {
     "#).unwrap();
 }
 
-fn parse_input(input: &str) -> (HashMap<&str, usize>, Vec<i32>) {
+fn parse_input(input: &str, add_myself: bool) -> (HashMap<&str, usize>, Vec<i32>) {
     let mut names = HashMap::new();
     let mut entries = vec![];
 
@@ -83,6 +97,11 @@ fn parse_input(input: &str) -> (HashMap<&str, usize>, Vec<i32>) {
         let name0 = { let n = names.len(); *names.entry(name0).or_insert(n) };
         let name1 = { let n = names.len(); *names.entry(name1).or_insert(n) };
         entries.push((name0, name1, if pos { diff } else { -diff }));
+    }
+
+    if add_myself {
+        let n = names.len();
+        names.insert("Myself", n);
     }
 
     let ns = names.len();
