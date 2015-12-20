@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Daniel Keep <daniel.keep@gmail.com>"]
 
 [dependencies]
+arrayvec = "0.3.12"
 clap = "1.5.3"
 conv = "0.3.1"
 crossbeam = "0.1.6"
