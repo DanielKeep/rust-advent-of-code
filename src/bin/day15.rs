@@ -8,14 +8,15 @@ use conv::prelude::*;
 use regex::Regex;
 
 fn main() {
+    let calories = args();
     let ingredients = parse_input();
 
-    let (score, amts) = brute_force(&ingredients);
+    let (score, amts) = brute_force(&ingredients, calories);
     println!("best score: {}", score);
     println!("amounts: {:?}", amts);
 }
 
-fn score(ings: &[Ingredient], amts: &[u8]) -> u32 {
+fn score(ings: &[Ingredient], amts: &[u8], calories: Option<u32>) -> u32 {
     let (mut cap, mut dur, mut fla, mut tex, mut cal) = (0, 0, 0, 0, 0);
 
     for (ing, &amt) in ings.iter().zip(amts.iter()) {
@@ -31,22 +32,26 @@ fn score(ings: &[Ingredient], amts: &[u8]) -> u32 {
     let dur = dur.value_as::<u32>().unwrap_or_saturate();
     let fla = fla.value_as::<u32>().unwrap_or_saturate();
     let tex = tex.value_as::<u32>().unwrap_or_saturate();
-    let _ = cal.value_as::<u32>().unwrap_or_saturate();
+    let cal = cal.value_as::<u32>().unwrap_or_saturate();
 
-    cap * dur * fla * tex
+    if calories.is_none() || calories == Some(cal) {
+        cap * dur * fla * tex
+    } else {
+        0
+    }
 }
 
-fn brute_force(ingr: &[Ingredient]) -> (u32, Vec<u8>) {
+fn brute_force(ingr: &[Ingredient], calories: Option<u32>) -> (u32, Vec<u8>) {
     let ingrs = ingr.len();
     let mut amts = vec![0; ingrs];
     amts[ingrs - 1] = 100;
 
-    let mut best_soln = (score(ingr, &amts), amts.clone());
+    let mut best_soln = (score(ingr, &amts, calories), amts.clone());
 
     loop {
         next_soln(&mut amts);
 
-        let cand_score = score(ingr, &amts);
+        let cand_score = score(ingr, &amts, calories);
 
         if cand_score > best_soln.0 {
             best_soln.0 = cand_score;
@@ -80,6 +85,21 @@ fn next_soln(amts: &mut [u8]) {
     }
 
     amts[last] = amts[..last].iter().cloned().fold(100, |a, b| a - b);
+}
+
+fn args() -> Option<u32> {
+    extern crate clap;
+
+    let matches = clap::App::new("day15")
+        .args_from_usage("\
+            -c --calories=[CALORIES] 'Calories per biscuit'\
+        ")
+        .get_matches();
+
+    let calories = matches.value_of("CALORIES")
+        .map(|s| s.parse().unwrap());
+
+    calories
 }
 
 #[derive(Clone, Debug)]
