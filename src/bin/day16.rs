@@ -33,12 +33,36 @@ const NEEDLE: &'static Compounds<u8> = &Compounds {
 };
 
 fn main() {
+    let new_rules = args();
     let mut sues = parse_input();
 
-    sues.retain(|&(_, ref cand)| maybe_is(cand, NEEDLE));
+    if new_rules {
+        sues.retain(|&(_, ref cand)| new_maybe_is(cand, NEEDLE));
+    } else {
+        sues.retain(|&(_, ref cand)| maybe_is(cand, NEEDLE));
+    }
 
     println!("candidate Sues: {}",
         sues.iter().map(|&(sue, _)| sue).join(", "));
+}
+
+fn new_maybe_is<T>(cand: &Compounds<Option<T>>, reference: &Compounds<T>) -> bool
+where T: Eq + Ord {
+    macro_rules! as_expr { ($e:expr) => {$e} }
+    macro_rules! check_rel {
+        ($rel:tt: $($ns:ident),+) => {
+            $(
+                match cand.$ns.as_ref() {
+                    Some(cand) => as_expr!(*cand $rel reference.$ns),
+                    None => true
+                }
+            ) && +
+        }
+    }
+
+    check_rel!(== : children, samoyeds, akitas, vizslas, cars, perfumes)
+        && check_rel!(> : cats, trees)
+        && check_rel!(< : pomeranians, goldfish)
 }
 
 fn maybe_is<T>(cand: &Compounds<Option<T>>, reference: &Compounds<T>) -> bool
@@ -56,6 +80,20 @@ where T: Eq {
 
     check!(children, cats, samoyeds, pomeranians, akitas,
         vizslas, goldfish, trees, cars, perfumes)
+}
+
+fn args() -> bool {
+    extern crate clap;
+
+    let matches = clap::App::new("day16")
+        .args_from_usage("\
+            -n --new-rules 'Use new rules'\
+        ")
+        .get_matches();
+
+    let new_rules = matches.is_present("new-rules");
+
+    new_rules
 }
 
 lazy_static! {
