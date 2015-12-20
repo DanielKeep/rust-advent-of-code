@@ -4,8 +4,9 @@ version = "0.1.0"
 authors = ["Daniel Keep <daniel.keep@gmail.com>"]
 
 [features]
-default = ["day18-braille"]
+default = ["day18-animation", "day18-braille"]
 
+day18-animation = ["winapi", "kernel32-sys"]
 day18-braille = []
 
 [dependencies]
@@ -21,3 +22,6 @@ rust-crypto = "0.2.34"
 serde_json = "0.6.0"
 strcursor = "0.1.0"
 time = "0.1.34"
+
+winapi = { version = "0.2.5", optional = true }
+kernel32-sys = { version = "0.2.1", optional = true }

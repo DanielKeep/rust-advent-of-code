@@ -1,7 +1,14 @@
 extern crate itertools;
 
+#[cfg(feature="winapi")] extern crate winapi;
+#[cfg(feature="kernel32-sys")] extern crate kernel32;
+
 use std::ops::{Index, IndexMut};
+use std::time::Duration;
 use itertools::Itertools;
+
+#[cfg(feature="day18-animation")]
+const SLEEP_TIME: u64 = 1000/10;
 
 fn main() {
     let (broken, show, steps) = args();
@@ -18,6 +25,13 @@ fn main() {
     }
 
     for _ in 0..steps {
+        if cfg!(feature = "day18-animation") {
+            clear_screen();
+            print!("{}", curr_bitmap);
+            std::io::Write::flush(&mut std::io::stdout()).unwrap();
+            std::thread::sleep(Duration::from_millis(SLEEP_TIME));
+        }
+
         for xy in curr_bitmap.iter_coords() {
             let ns = &mut 0;
             curr_bitmap.neighbours_of(xy, |n_xy| {
@@ -46,7 +60,11 @@ fn main() {
     let lights = curr_bitmap.iter().fold(0u32, |a, &b| a + if b { 1 } else { 0 });
 
     if show {
-        println!("Bitmap:");
+        if cfg!(not(feature="day18-animation")) {
+            println!("Bitmap:");
+        } else {
+            clear_screen();
+        }
         println!("{}\n", curr_bitmap);
     }
 
@@ -254,5 +272,27 @@ fn parse_input() -> Bitmap {
     Bitmap {
         cells: cells,
         width: width as u16,
+    }
+}
+
+#[cfg(feature="day18-animation")]
+fn clear_screen() {
+    use std::mem::zeroed;
+    use winapi::*;
+    use kernel32::*;
+
+    unsafe {
+        let fill = b' ' as u16;
+        let tl = COORD { X: 0, Y: 0 };
+        let mut s: CONSOLE_SCREEN_BUFFER_INFO = zeroed();
+        let console: HANDLE = GetStdHandle(STD_OUTPUT_HANDLE);
+        GetConsoleScreenBufferInfo(console, &mut s);
+
+        let mut written: DWORD = 0;
+        let cells: DWORD = s.dwSize.X as DWORD * s.dwSize.Y as DWORD;
+
+        FillConsoleOutputCharacterW(console, fill, cells, tl, &mut written);
+        FillConsoleOutputAttribute(console, s.wAttributes, cells, tl, &mut written);
+        SetConsoleCursorPosition(console, tl);
     }
 }
