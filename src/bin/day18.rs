@@ -4,9 +4,18 @@ use std::ops::{Index, IndexMut};
 use itertools::Itertools;
 
 fn main() {
-    let (show, steps) = args();
+    let (broken, show, steps) = args();
     let mut curr_bitmap = parse_input();
     let mut next_bitmap = curr_bitmap.clone();
+
+    if broken {
+        let x1 = curr_bitmap.width() - 1;
+        let y1 = curr_bitmap.height() - 1;
+        curr_bitmap[(0, 0)] = true;
+        curr_bitmap[(x1, 0)] = true;
+        curr_bitmap[(0, y1)] = true;
+        curr_bitmap[(x1, y1)] = true;
+    }
 
     for _ in 0..steps {
         for xy in curr_bitmap.iter_coords() {
@@ -20,6 +29,15 @@ fn main() {
                 (true, 2) | (true, 3) | (false, 3) => true,
                 _ => false
             };
+        }
+
+        if broken {
+            let x1 = next_bitmap.width() - 1;
+            let y1 = next_bitmap.height() - 1;
+            next_bitmap[(0, 0)] = true;
+            next_bitmap[(x1, 0)] = true;
+            next_bitmap[(0, y1)] = true;
+            next_bitmap[(x1, y1)] = true;
         }
 
         std::mem::swap(&mut curr_bitmap, &mut next_bitmap);
@@ -141,22 +159,24 @@ impl IndexMut<(u16, u16)> for Bitmap {
     }
 }
 
-fn args() -> (bool, u32) {
+fn args() -> (bool, bool, u32) {
     extern crate clap;
 
     let matches = clap::App::new("day18")
         .args_from_usage("\
+            -b --broken 'Add broken corner lights'
             -s --show 'Show bitmap'
             <STEPS> 'Number of steps'\
         ")
         .get_matches();
 
+    let broken = matches.is_present("broken");
     let show = matches.is_present("show");
     let steps = matches.value_of("STEPS")
         .map(|s| s.parse().unwrap())
         .unwrap();
 
-    (show, steps)
+    (broken, show, steps)
 }
 
 fn parse_input() -> Bitmap {
