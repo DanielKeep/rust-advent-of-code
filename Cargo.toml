@@ -3,6 +3,11 @@ name = "advent-of-code"
 version = "0.1.0"
 authors = ["Daniel Keep <daniel.keep@gmail.com>"]
 
+[features]
+default = ["day18-braille"]
+
+day18-braille = []
+
 [dependencies]
 arrayvec = "0.3.12"
 clap = "1.5.3"

@@ -47,7 +47,7 @@ fn main() {
 
     if show {
         println!("Bitmap:");
-        println!("{}", curr_bitmap);
+        println!("{}\n", curr_bitmap);
     }
 
     println!("lights on after {} steps: {}", steps, lights);
@@ -102,9 +102,59 @@ impl Bitmap {
     }
 }
 
+#[cfg(feature="day18-braille")]
+const BRAILLE_OFFSET: u32 = 0x2800;
+
+#[cfg(feature="day18-braille")]
+const BRAILLE_BITS: &'static [u8; 8] = &[
+    0x01, 0x08,
+    0x02, 0x10,
+    0x04, 0x20,
+    0x40, 0x80,
+];
+
+#[cfg(feature="day18-braille")]
 impl std::fmt::Display for Bitmap {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let w = self.width();
+        let h = self.height();
+        let mut first = true;
+
+        for by in 0..((self.height() + 3)/4) {
+            if !first { try!("\n".fmt(fmt)); }
+            first = false;
+
+            for bx in 0..((self.width() + 1)/2) {
+                let x_off = bx*2;
+                let y_off = by*4;
+                let mut bits = 0;
+
+                let coords = (y_off..y_off+4)
+                    .cartesian_product(x_off..x_off+2)
+                    .zip(BRAILLE_BITS)
+                    .filter(|&((y, x), _)| (x < w) && (y < h));
+
+                for ((y, x), bb) in coords {
+                    if self[(x, y)] { bits |= *bb; }
+                }
+
+                let c = BRAILLE_OFFSET | bits as u32;
+                let c = std::char::from_u32(c).unwrap();
+                try!(c.fmt(fmt));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(not(feature="day18-braille"))]
+impl std::fmt::Display for Bitmap {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut first = true;
         for y in 0..self.height() {
+            if !first { try!("\n".fmt(fmt)); }
+            first = false;
+
             for e in &self[(.., y)] {
                 if *e {
                     try!("#".fmt(fmt));
@@ -112,7 +162,6 @@ impl std::fmt::Display for Bitmap {
                     try!(".".fmt(fmt));
                 }
             }
-            try!("\n".fmt(fmt));
         }
         Ok(())
     }
